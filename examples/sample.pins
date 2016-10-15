@@ -1,0 +1,70 @@
+[DEFAULT]
+default_pinwidth: 120%
+
+[Jakarta]
+latitude: 6s08
+longitude: 106e45
+country: id
+url: http://www.google.com/search?q=jakarta
+
+[Bali]
+latitude: 8s39
+longitude: 115e13
+country: id
+url: http://www.google.com/search?q=bali
+
+[Havana]
+latitude: 23n08
+longitude: 82w22
+country: cu
+url: http://www.google.com/search?q=havana
+
+[Nagoya University]
+latitude: 35.15
+longitude: 136.96
+pinwidth: 150%
+country: jp
+url: http://gsl-nagoya-u.net/
+
+[National University of Laos]
+latitude: 17n58
+longitude: 102e36
+country: la
+url: http://www.google.com/search?q=vientiane
+
+[Greenwich]
+latitude: 51n28
+longitude: 0
+country: gb
+url: http://www.google.com/search?q=greenwich
+
+[Land's End]
+latitude: 50n04
+longitude: 05w44
+country: gb
+url: http://en.wikipedia.org/wiki/Land's_End
+
+[Sakurajima]
+latitude: 31n58
+longitude: 130e66
+country: jp
+url: http://hakone.er.i.u-tokyo.ac.jp/unzen/sakura/sakura.html
+
+[Ulaanbatar]
+latitude: 47n54
+longitude: 106e52
+country: mn
+url: http://ourworld.compuserve.com/homepages/rgruys/Mongolia/ubviews.htm
+
+[Honolulu]
+latitude: 21n19
+longitude: 157w52
+country: us
+url: http://honolulu.pm.org/
+
+[Chico, California]
+latitude: 39n78
+longitude: 121w85
+pinwidth: 150%
+country: us
+url: http://www.chico.ca.us/

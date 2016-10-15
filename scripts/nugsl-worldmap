@@ -1,0 +1,288 @@
+#!/usr/bin/env python
+
+from nugsl.worldmap import worldMap
+from optparse import OptionParser
+import sys, os.path, re
+from nugsl.worldmap import pinConfig, countryConfig
+from nugsl.worldmap import imageMap
+
+from nugsl.worldmap import html_merge
+
+if __name__ == '__main__':
+    
+    internal_file = os.path.join( sys.prefix, 'share', 'nugsl-worldmap', 'data', 'BlankMap-World6.svg' )
+    
+    usage = '''
+      %prog -o FILE [options]
+'''.rstrip()
+  
+    sample_style = '''
+Style files are inserted directly into the stylesheet
+area of the SVG file.  It is up to you to make sure the
+code is valid and meaningful.  The sample code below 
+is modelled on the default style, and includes styling 
+for pinpoint markers.
+
+.pinpoint {
+    opacity:1;
+    fill: yellow;
+    fill-opacity:1;
+    fill-rule:evenodd;
+    stroke:#ef0b0b;
+    stroke-width:0;
+    stroke-linecap:square;
+    stroke-linejoin:miter;
+    stroke-miterlimit:3.97446823;
+    stroke-dasharray:none;
+    stroke-dashoffset:0;
+    stroke-opacity:1;
+}
+
+.circle
+{
+   opacity:0;
+   fill:#b9b9b9;
+   fill-opacity:1;
+   stroke:black;
+   stroke-width:0.99986893;
+   stroke-miterlimit:3.97446823;
+   stroke-dasharray:none;
+   stroke-opacity:1;
+}
+
+.land
+{
+   fill: #7ec24f;
+   fill-opacity: 1;
+   stroke: #ffffff;
+   stroke-opacity: 1;
+   stroke-width: 0.99986997;
+   stroke-miterlimit: 3.97446823;
+   stroke-dasharray: none;
+}
+
+.us, .gb, .de, .fr, .cn, .jp, .la, .th, .id, .au {
+    fill: #62a931;
+}
+
+.aq
+{
+   fill:#e6e6e6;
+}
+
+.ocean
+{
+   opacity: 1;
+   color: #000000;
+   fill: #58a2be;
+   fill-opacity:1;
+   fill-rule:nonzero;
+   stroke:#000000;
+   stroke-width:0.5;
+   stroke-linecap:butt;
+   stroke-linejoin:miter;
+   marker:none;
+   marker-start:none;
+   marker-mid:none;
+   marker-end:none;
+   stroke-miterlimit:1;
+   stroke-dasharray:none;
+   stroke-dashoffset:0;
+   stroke-opacity:1;
+   visibility:visible;
+   display:inline;
+   overflow:visible;
+}
+
+.lake
+{
+   fill: #58a2be;
+   fill-opacity:1;
+   stroke:#ffffff;
+   stroke-opacity:1;
+   stroke-width:0.99986997;
+   stroke-miterlimit:3.97446823;
+   stroke-dasharray:none;
+}
+'''
+
+    sample_pins = '''
+In pinpoint configuration files, coordinates can be given as decimal 
+numbers or as n/s/e/w degrees.  In the former case, sub-units are 
+in hundredths, in the latter case, sub-units are in minutes.
+
+[Nagoya University]
+latitude: 35.15
+longitude: 136.96
+pinwidth: 20
+
+[Chico, California]
+latitude: 39n44
+longitude: 120w51
+
+[South Pole]
+latitude: -90
+longitude: 0
+
+[North Pole]
+latitude: 90n
+longitude: 0
+
+[Greenwich]
+latitude: 51n28
+longitude: 0
+'''
+    parser = OptionParser(usage=usage)
+        
+    parser.set_defaults(mode="rotated")
+
+    parser.add_option("-c", "--country", dest="country", metavar="COUNTRY",
+                      default=None,
+                      help="Write a file containing only COUNTRY.")
+    parser.add_option("-C", "--country-config", dest="country_file", metavar="FILE",
+                      default=None,
+                      help="List of config files from which to read country formatting data.  (Meaningless with -t orig)")
+    parser.add_option("-D", "--suppress-country-imagemap", dest="suppress_country_imagemap",
+                      default=False,
+                      action='store_true',
+                      help="Suppress creation of country imagemap in HTML templates")
+    parser.add_option("-e", "--extend-poles", dest="extend", metavar="VALUE",
+                      default='1.112',
+                      help="Factor by which to extend the poles when calculating units of latitude. (Default: 1.112)")
+    parser.add_option("-f", "--render-file-type", dest="render_type",
+                      type="choice",choices=['jpg','png'],
+                      default="png",
+                      action="store", 
+                      help='Type of rendered file to write ("png" or "jpg").  (Default: png)')
+    parser.add_option("-H", "--extended-help", dest="extended_help",
+                      default=False,
+                      action="store_true", 
+                      help='Display sample content for pinpoint and stylesheet configuration files.')
+    parser.add_option("-i", "--input-file", dest="ifile", metavar="INPUT",
+                      default=internal_file,
+                      help="WikiMedia Robinson projection of the world in SVG format (Defaults to internal copy)")
+    parser.add_option("-m", "--meridian", dest="meridian",
+                      default='0W',
+                      help="Line of longitude to place at the center of the image.  Form is 179E59.  Range is 180W to 180E. (Default: 0W)")
+    parser.add_option("-o", "--output", dest="ofile", metavar="FILE",
+                      default=None, action="store",
+                      help='Write output on FILE (mandatory)')
+    parser.add_option("-p", "--pins", dest="pins", metavar="STRING",
+                      default=None,
+                      help="List of coordinates to mark in the map.  Format is 100n20:23w43.  (Meaningless with -t orig)")
+    parser.add_option("-P", "--pin-file", dest="pin_file", metavar="FILE",
+                      default=None,
+                      help="List of config files from which to read pin data.  (Meaningless with -t orig)")
+    parser.add_option("-Q", "--suppress-pinpoint-imagemap", dest="suppress_pinpoint_imagemap",
+                      default=False,
+                      action='store_true',
+                      help="Suppress creation of pinpoint imagemap in HTML templates")
+    parser.add_option("-S", "--style-file", dest="style_files", metavar="FILE",
+                      default=None,
+                      help="Comma-delimited list of files containing CSS style code.  Stylesheet of SVG output file is replaced with this code.  If multiple files are specified, files after the first are distinguished by a numeric extension to the base filename.")
+    parser.add_option("-t", "--type", dest="type",
+                      type="choice",choices=['rotated','flat', 'orig'],
+                      default="flat",
+                      action="store", 
+                      help='Type of projection to write ("rotated", "flat" or "orig").  (Default: flat)')
+    parser.add_option("-T", "--html-template", dest="html_template", metavar="FILE",
+                      default=None,
+                      help="Use FILE as HTML template for clickable imagemap page.")
+    parser.add_option("-w", "--pin-width", dest="pin_width", metavar="SIZE",
+                      default='10.0',
+                      help="Width of pin markers, either in map units, or as a percentage (i.e. 110%) of the default.  (Default: 10.0)")
+    parser.add_option("-W", "--rendered-pin-width", dest="rendered_pinwidth", metavar="SIZE",
+                      default=None,
+                      help="Width of pin markers, in pixels.  Requires -x or -y.")
+    parser.add_option("-X", "--cleanup", dest="cleanup",
+                      default=False,
+                      action='store_true',
+                      help="Clean up working files after producing rendered images")
+    parser.add_option("-x", "--render-width", dest="render_width", metavar="SIZE",
+                      default='0',
+                      help="Renders image as bitmap, with this as maximum width.  Default is 0.")
+    parser.add_option("-y", "--render-height", dest="render_height", metavar="SIZE",
+                      default='0',
+                      help="Renders image as bitmap, with this as maximum height.  Default is 0.")
+    (options, args) = parser.parse_args()
+
+    if options.extended_help:
+        parser.print_help()
+        print sample_style
+        print sample_pins
+        sys.exit()
+
+    if not options.ofile:
+        parser.print_help()
+        print "\nERROR: The -o option is mandatory.\n"
+        sys.exit()
+        
+    render_width = float( options.render_width )
+    render_height = float( options.render_height )
+        
+    if options.rendered_pinwidth:
+        if not render_width and not render_height:
+            parser.print_help()
+            print "\nERROR: The -W option requires either -x or -y, or both."
+            sys.exit()
+        rendered_pinwidth = float( options.rendered_pinwidth )
+    else:
+        rendered_pinwidth = None
+
+    if options.style_files:
+        style_files = options.style_files.split(',')
+    else:
+        style_files = []
+        
+    idata = os.path.splitext(options.ifile)[0] + '.pickle'
+    odata = os.path.splitext(options.ofile)[0] + '.pickle'
+
+    pin_width = options.pin_width
+    
+    if options.pin_file:
+        pin_file = options.pin_file.split(',')
+    else:
+        pin_file = []
+    
+    if options.country_file:
+        country_file = options.country_file.split(',')
+    else:
+        country_file = []
+
+    super_pinwidth_default = 10.0
+        
+    pinconfig = pinConfig( pin_file, options.pins, options.pin_width, super_pinwidth_default )
+    pins = pinconfig.pins()
+    
+    meridian = pinconfig.longitude_to_float( options.meridian )
+    
+    countryconfig = countryConfig( country_file )
+    countrydata = countryconfig.countrydata()
+    
+    o = worldMap( options.ifile, options.ofile, idata=idata, odata=odata, 
+                  render_width=render_width,
+                  render_height=options.render_height,
+                  rendered_pinwidth=rendered_pinwidth,
+                  meridian=meridian,
+                  pins=pins,
+                  render_type=options.render_type,
+                  cleanup=options.cleanup,
+                  countrydata=countrydata,
+                  suppress_country_imagemap=options.suppress_country_imagemap,
+                  suppress_pinpoint_imagemap=options.suppress_pinpoint_imagemap,
+                  style_files=style_files,
+                  pin_width=pin_width,
+                  extend=options.extend)
+      
+    htmltitle = o.get_country_title( options.country )
+                  
+    if options.country:
+        o.output( options.country )
+
+    else:
+        o.output( options.type )
+
+    if options.html_template:
+        html_code = open( options.html_template ).read()
+        html_merge( html_code, options.ofile, options.render_type, o.imagemap,
+                    title=htmltitle )
